@@ -73,7 +73,7 @@ func NewHostClient(id string, addr string, h *http.Client) Host {
 		id: id,
 		c: &httpclient.Client{
 			ErrNotFound: ErrNotFound,
-			URL:         addr,
+			URL:         "http://" + addr,
 			HTTP:        h,
 		},
 	}
@@ -87,6 +87,10 @@ func (c *hostClient) ListJobs() (map[string]host.ActiveJob, error) {
 	var jobs map[string]host.ActiveJob
 	err := c.c.Get("/host/jobs", &jobs)
 	return jobs, err
+}
+
+func (c *hostClient) AddJob(job *host.Job) error {
+	return c.c.Put(fmt.Sprintf("/host/jobs/%s", job.ID), job, nil)
 }
 
 func (c *hostClient) GetJob(id string) (*host.ActiveJob, error) {
