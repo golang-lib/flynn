@@ -18,7 +18,9 @@ import (
 	"github.com/flynn/flynn/pinkerton/layer"
 	"github.com/flynn/flynn/pkg/cluster"
 	"github.com/flynn/flynn/pkg/httphelper"
+	"github.com/flynn/flynn/pkg/shutdown"
 	"github.com/flynn/flynn/pkg/sse"
+	"github.com/tav/golly/log"
 )
 
 type Host struct {
@@ -170,10 +172,25 @@ func (h *jobAPI) ConfigureDiscoverd(w http.ResponseWriter, r *http.Request, _ ht
 		httphelper.Error(w, err)
 		return
 	}
-	if err := h.connectDiscoverd(config.URL); err != nil {
-		httphelper.Error(w, err)
-		return
+	go func() {
+		if err := h.connectDiscoverd(config.URL); err != nil {
+			log.Error(err)
+			return
+		}
+	}()
+}
+
+func (h *jobAPI) ConfigureNetworking(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	var config NetworkConfig
+	if err := httphelper.DecodeJSON(r, &config); err != nil {
+		shutdown.Fatal(err)
 	}
+
+	go func() {
+		if _, err := h.backend.ConfigureNetworking(config); err != nil {
+			shutdown.Fatal(err)
+		}
+	}()
 }
 
 func extractTufDB(r *http.Request) (string, error) {
@@ -197,6 +214,7 @@ func (h *jobAPI) RegisterRoutes(r *httprouter.Router) error {
 	r.PUT("/host/jobs/:id/signal/:signal", h.SignalJob)
 	r.POST("/host/pull-images", h.PullImages)
 	r.PUT("/host/discoverd", h.ConfigureDiscoverd)
+	r.PUT("/host/network", h.ConfigureNetworking)
 	return nil
 }
 
