@@ -43,6 +43,11 @@ type NetworkInfo struct {
 	Nameservers []string
 }
 
+type NetworkConfig struct {
+	Subnet string `json:"subnet"`
+	MTU    int `json:"mtu"`
+}
+
 type JobStateSaver interface {
 	MarshalJobState(jobID string) ([]byte, error)
 }
