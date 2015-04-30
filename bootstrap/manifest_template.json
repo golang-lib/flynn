@@ -5,6 +5,18 @@
     "vars": ["CLUSTER_DOMAIN"]
   },
   {
+    deploy etcd
+  },
+  {
+    deploy flannel
+  },
+  {
+    deploy discoverd
+  },
+  {
+    wait for discoverd on all hosts
+  },
+  {
     "id": "pg-password",
     "action": "gen-random"
   },
