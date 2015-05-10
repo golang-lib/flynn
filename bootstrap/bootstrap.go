@@ -8,36 +8,24 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/flynn/flynn/bootstrap/discovery"
 	"github.com/flynn/flynn/controller/client"
 	ct "github.com/flynn/flynn/controller/types"
 	"github.com/flynn/flynn/discoverd/client"
-	"github.com/flynn/flynn/host/types"
 	"github.com/flynn/flynn/pkg/attempt"
 	"github.com/flynn/flynn/pkg/cluster"
-	"github.com/flynn/flynn/pkg/httphelper"
-	"github.com/flynn/flynn/pkg/stream"
 )
 
 type State struct {
-	StepData  map[string]interface{}
-	Providers map[string]*ct.Provider
-	Singleton bool
+	StepData   map[string]interface{}
+	Providers  map[string]*ct.Provider
+	Singleton  bool
+	ClusterURL string
+	Instances  []string
+	Hosts      []cluster.Host
 
-	clusterc    *cluster.Client
-	controllerc *controller.Client
-
+	controllerc   *controller.Client
 	controllerKey string
-}
-
-func (s *State) ClusterClient() (*cluster.Client, error) {
-	if s.clusterc == nil {
-		cc, err := cluster.NewClient()
-		if err != nil {
-			return nil, err
-		}
-		s.clusterc = cc
-	}
-	return s.clusterc, nil
 }
 
 func (s *State) ControllerClient() (*controller.Client, error) {
@@ -165,55 +153,30 @@ var onlineHostAttempts = attempt.Strategy{
 
 func checkOnlineHosts(count int, state *State) error {
 	var online int
-	service := discoverd.NewService("flynn-host")
-	updates := make(chan *discoverd.Event)
-	var s stream.Stream
-	if err := onlineHostAttempts.Run(func() (err error) {
-		s, err = service.Watch(updates)
-		return
-	}); err != nil {
-		return err
-	}
-	defer s.Close()
 
 	timeout := time.After(30 * time.Second)
-loop:
 	for {
+		// TODO: instance urls instead of url
+		instances, err := discovery.GetCluster(state.ClusterURL)
+		if err != nil {
+			return fmt.Errorf("error discovering cluster: %s", err)
+		}
+
+		online = len(instances)
+		if online >= count {
+			state.Hosts = make([]cluster.Host, online)
+			for i, inst := range instances {
+				state.Hosts[i] = cluster.NewHostClient(inst.Name, inst.URL, nil)
+			}
+			// TODO: ping all instances
+			break
+		}
+
 		select {
-		case <-updates:
-			instances, err := service.Instances()
-			if err != nil {
-				if httphelper.IsObjectNotFoundError(err) {
-					continue
-				}
-				return err
-			}
-			online = len(instances)
-			if online >= count {
-				break loop
-			}
 		case <-timeout:
 			return fmt.Errorf("timed out waiting for %d hosts to come online (currently %d online)", count, online)
+		default:
 		}
 	}
-
-	return onlineHostAttempts.Run(func() error {
-		hosts, err := clusterHosts(state)
-		if err != nil {
-			return err
-		}
-		online = len(hosts)
-		if online < count {
-			return fmt.Errorf("expected %d online hosts, got %d", count, online)
-		}
-		return nil
-	})
-}
-
-func clusterHosts(state *State) ([]host.Host, error) {
-	cc, err := state.ClusterClient()
-	if err != nil {
-		return nil, err
-	}
-	return cc.ListHosts()
+	return nil
 }
