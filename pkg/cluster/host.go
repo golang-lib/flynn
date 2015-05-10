@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/flynn/flynn/host/types"
 	"github.com/flynn/flynn/host/volume"
@@ -69,11 +70,14 @@ func NewHostClient(id string, addr string, h *http.Client) Host {
 	if h == nil {
 		h = http.DefaultClient
 	}
+	if !strings.HasPrefix(addr, "http") {
+		addr = "http://" + addr
+	}
 	return &hostClient{
 		id: id,
 		c: &httpclient.Client{
 			ErrNotFound: ErrNotFound,
-			URL:         "http://" + addr,
+			URL:         addr,
 			HTTP:        h,
 		},
 	}
