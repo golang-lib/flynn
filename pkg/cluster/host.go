@@ -25,6 +25,9 @@ type Host interface {
 	// GetJob retrieves job details by ID.
 	GetJob(id string) (*host.ActiveJob, error)
 
+	// AddJob runs a job on the host.
+	AddJob(job *host.Job) error
+
 	// StopJob stops a running job.
 	StopJob(id string) error
 

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"sort"
 	"time"
 
 	ct "github.com/flynn/flynn/controller/types"
@@ -14,7 +13,6 @@ import (
 	"github.com/flynn/flynn/pkg/cluster"
 	"github.com/flynn/flynn/pkg/random"
 	"github.com/flynn/flynn/pkg/resource"
-	"github.com/flynn/flynn/pkg/schedutil"
 )
 
 type RunAppAction struct {
@@ -105,23 +103,11 @@ func (a *RunAppAction) Run(s *State) error {
 		}
 	}
 
-	cc, err := s.ClusterClient()
-	if err != nil {
-		return err
-	}
 	for typ, count := range a.Processes {
 		if s.Singleton && count > 1 {
 			a.Processes[typ] = 1
 			count = 1
 		}
-		hosts, err := cc.ListHosts()
-		if err != nil {
-			return err
-		}
-		if len(hosts) == 0 {
-			return errors.New("bootstrap: no running hosts found")
-		}
-		sort.Sort(schedutil.HostSlice(hosts))
 		for i := 0; i < count; i++ {
 			hostID := hosts[i%len(hosts)].ID
 			config := utils.JobConfig(a.ExpandedFormation, typ, hostID)
@@ -142,20 +128,8 @@ func (a *RunAppAction) Run(s *State) error {
 	return nil
 }
 
-func startJob(s *State, hostID string, job *host.Job) (*Job, error) {
-	cc, err := s.ClusterClient()
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: filter by tags
-
-	data := &Job{HostID: hostID, JobID: job.ID}
-
-	hc, err := cc.DialHost(hostID)
-	if err != nil {
-		return nil, err
-	}
+func startJob(s *State, hc cluster.Host, job *host.Job) (*Job, error) {
+	data := &Job{HostID: hc.ID(), JobID: job.ID}
 
 	jobStatus := make(chan error)
 	events := make(chan *host.Event)
@@ -188,21 +162,9 @@ func startJob(s *State, hostID string, job *host.Job) (*Job, error) {
 		jobStatus <- fmt.Errorf("bootstrap: host job stream disconnected unexpectedly: %q", stream.Err())
 	}()
 
-	_, err = cc.AddJobs(map[string][]*host.Job{hostID: {job}})
-	if err != nil {
+	if err := hc.AddJob(job); err != nil {
 		return nil, err
 	}
 
 	return data, <-jobStatus
-}
-
-func randomHost(cc *cluster.Client) (string, error) {
-	hosts, err := cc.ListHosts()
-	if err != nil {
-		return "", err
-	}
-	if len(hosts) == 0 {
-		return "", cluster.ErrNoServers
-	}
-	return schedutil.PickHost(hosts).ID, nil
 }
