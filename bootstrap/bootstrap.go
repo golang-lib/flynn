@@ -30,7 +30,11 @@ type State struct {
 
 func (s *State) ControllerClient() (*controller.Client, error) {
 	if s.controllerc == nil {
-		instances, err := discoverd.GetInstances("flynn-controller", time.Second)
+		disc, err := s.DiscoverdClient()
+		if err != nil {
+			return nil, err
+		}
+		instances, err := disc.Instances("flynn-controller", time.Second)
 		if err != nil {
 			return nil, err
 		}
@@ -45,6 +49,11 @@ func (s *State) ControllerClient() (*controller.Client, error) {
 
 func (s *State) SetControllerKey(key string) {
 	s.controllerKey = key
+}
+
+func (s *State) DiscoverdClient() (*discoverd.Client, error) {
+	// connect to host
+	return nil, nil
 }
 
 type Action interface {
