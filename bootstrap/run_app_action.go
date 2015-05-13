@@ -108,16 +108,17 @@ func (a *RunAppAction) Run(s *State) error {
 			a.Processes[typ] = 1
 			count = 1
 		}
+		hosts := s.ShuffledHosts()
 		for i := 0; i < count; i++ {
-			hostID := hosts[i%len(hosts)].ID
-			config := utils.JobConfig(a.ExpandedFormation, typ, hostID)
+			host := hosts[i%len(hosts)]
+			config := utils.JobConfig(a.ExpandedFormation, typ, host.ID())
 			hostresource.SetDefaults(&config.Resources)
 			if a.ExpandedFormation.Release.Processes[typ].Data {
-				if err := utils.ProvisionVolume(cc, hostID, config); err != nil {
+				if err := utils.ProvisionVolume(host, config); err != nil {
 					return err
 				}
 			}
-			job, err := startJob(s, hostID, config)
+			job, err := startJob(s, host, config)
 			if err != nil {
 				return err
 			}

@@ -14,6 +14,7 @@ import (
 	"github.com/flynn/flynn/discoverd/client"
 	"github.com/flynn/flynn/pkg/attempt"
 	"github.com/flynn/flynn/pkg/cluster"
+	"github.com/flynn/flynn/pkg/random"
 )
 
 type State struct {
@@ -54,6 +55,16 @@ func (s *State) SetControllerKey(key string) {
 func (s *State) DiscoverdClient() (*discoverd.Client, error) {
 	// connect to host
 	return nil, nil
+}
+
+func (s *State) ShuffledHosts() []cluster.Host {
+	hosts := make([]cluster.Host, len(s.Hosts))
+	copy(hosts, s.Hosts)
+	for i := len(hosts) - 1; i > 0; i-- {
+		j := random.Math.Intn(i + 1)
+		hosts[i], hosts[j] = hosts[j], hosts[i]
+	}
+	return hosts
 }
 
 type Action interface {
