@@ -52,15 +52,7 @@ func JobConfig(f *ct.ExpandedFormation, name, hostID string) *host.Job {
 	return job
 }
 
-type HostDialer interface {
-	DialHost(id string) (cluster.Host, error)
-}
-
-func ProvisionVolume(c HostDialer, hostID string, job *host.Job) error {
-	h, err := c.DialHost(hostID)
-	if err != nil {
-		return err
-	}
+func ProvisionVolume(h cluster.Host, job *host.Job) error {
 	vol, err := h.CreateVolume("default")
 	if err != nil {
 		return err
