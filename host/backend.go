@@ -30,22 +30,12 @@ type Backend interface {
 	Attach(*AttachRequest) error
 	Cleanup() error
 	UnmarshalState(map[string]*host.ActiveJob, map[string][]byte, []byte) error
-	ConfigureNetworking(strategy NetworkStrategy, job string) (*NetworkInfo, error)
+	ConfigureNetworking(config host.NetworkConfig) (*NetworkInfo, error)
 	SetDefaultEnv(k, v string)
 }
 
 type RunConfig struct {
 	IP net.IP
-}
-
-type NetworkInfo struct {
-	BridgeAddr  string
-	Nameservers []string
-}
-
-type NetworkConfig struct {
-	Subnet string `json:"subnet"`
-	MTU    int `json:"mtu"`
 }
 
 type JobStateSaver interface {

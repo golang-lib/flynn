@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/flynn/flynn/Godeps/_workspace/src/github.com/julienschmidt/httprouter"
 	"github.com/flynn/flynn/host/types"
@@ -63,6 +64,12 @@ type jobAPI struct {
 	host *Host
 
 	connectDiscoverd func(string) error
+
+	statusMtx sync.RWMutex
+	status    struct {
+		DiscoverdURL string            `json:"discoverd_url,omitempty"`
+		Networking   *NetworkingConfig `json:"networking,omitempty"`
+	}
 }
 
 func (h *jobAPI) ListJobs(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -172,6 +179,11 @@ func (h *jobAPI) ConfigureDiscoverd(w http.ResponseWriter, r *http.Request, _ ht
 		httphelper.Error(w, err)
 		return
 	}
+
+	h.statusMtx.Lock()
+	h.status.DiscoverdURL = config.URL
+	h.statusMtx.Unlock()
+
 	go func() {
 		if err := h.connectDiscoverd(config.URL); err != nil {
 			log.Error(err)
@@ -181,16 +193,26 @@ func (h *jobAPI) ConfigureDiscoverd(w http.ResponseWriter, r *http.Request, _ ht
 }
 
 func (h *jobAPI) ConfigureNetworking(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var config NetworkConfig
+	var config host.NetworkConfig
 	if err := httphelper.DecodeJSON(r, &config); err != nil {
 		shutdown.Fatal(err)
 	}
+
+	h.statusMtx.Lock()
+	h.status.Networking = &config
+	h.statusMtx.Unlock()
 
 	go func() {
 		if _, err := h.backend.ConfigureNetworking(config); err != nil {
 			shutdown.Fatal(err)
 		}
 	}()
+}
+
+func (h *jobAPI) GetStatus(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	h.statusMtx.RLock()
+	defer h.statusMtx.RUnlock()
+	httphelper.JSON(w, 200, &h.status)
 }
 
 func extractTufDB(r *http.Request) (string, error) {
@@ -215,6 +237,7 @@ func (h *jobAPI) RegisterRoutes(r *httprouter.Router) error {
 	r.POST("/host/pull-images", h.PullImages)
 	r.PUT("/host/discoverd", h.ConfigureDiscoverd)
 	r.PUT("/host/network", h.ConfigureNetworking)
+	r.GET("/host/status", h.GetStatus)
 	return nil
 }
 

@@ -129,7 +129,7 @@ func (a *RunAppAction) Run(s *State) error {
 	return nil
 }
 
-func startJob(s *State, hc cluster.Host, job *host.Job) (*Job, error) {
+func startJob(s *State, hc *cluster.Host, job *host.Job) (*Job, error) {
 	data := &Job{HostID: hc.ID(), JobID: job.ID}
 
 	jobStatus := make(chan error)

@@ -52,7 +52,7 @@ func JobConfig(f *ct.ExpandedFormation, name, hostID string) *host.Job {
 	return job
 }
 
-func ProvisionVolume(h cluster.Host, job *host.Job) error {
+func ProvisionVolume(h *cluster.Host, job *host.Job) error {
 	vol, err := h.CreateVolume("default")
 	if err != nil {
 		return err
