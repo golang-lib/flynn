@@ -5,16 +5,77 @@
     "vars": ["CLUSTER_DOMAIN"]
   },
   {
-    deploy etcd
+    "id": "etcd",
+    "app": {
+      "name": "etcd"
+    },
+    "action": "run-app",
+    "release": {
+      "processes": {
+        "app": {
+          "ports": [{"port": 2379, "proto": "tcp"}, {"port": 2380, "proto": "tcp"}],
+          "data": true,
+          "resurrect": true,
+		  "omni": true
+        }
+      }
+    },
+    "artifact": {
+      "type": "docker",
+      "uri": "$image_repository?name=flynn/etcd&id=$image_id[etcd]"
+    },
+    "processes": {
+      "app": 1
+    }
   },
   {
-    deploy flannel
+    "id": "flannel",
+    "app": {
+      "name": "flannel"
+    },
+    "action": "run-app",
+    "release": {
+      "processes": {
+        "app": {
+          "resurrect": true,
+		  "omni": true
+        }
+      }
+    },
+    "artifact": {
+      "type": "docker",
+      "uri": "$image_repository?name=flynn/flannel&id=$image_id[flannel]"
+    },
+    "processes": {
+      "app": 1
+    }
   },
   {
-    deploy discoverd
+    "id": "discoverd",
+    "app": {
+      "name": "discoverd"
+    },
+    "action": "run-app",
+    "release": {
+      "processes": {
+        "app": {
+          "ports": [{"port": 1111, "proto": "tcp"}, {"port": 53, "proto": "tcp"}],
+          "resurrect": true,
+		  "omni": true
+        }
+      }
+    },
+    "artifact": {
+      "type": "docker",
+      "uri": "$image_repository?name=flynn/discoverd&id=$image_id[discoverd]"
+    },
+    "processes": {
+      "app": 1
+    }
   },
   {
-    wait for discoverd on all hosts
+    "id": "wait-hosts",
+	"action": "wait-hosts"
   },
   {
     "id": "pg-password",

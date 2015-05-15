@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -175,11 +174,11 @@ var networkConfigAttempts = attempt.Strategy{
 // ConfigureNetworking is called once during host startup and passed the
 // strategy and identifier of the networking coordinatior job. Currently the
 // only strategy implemented uses flannel.
-func (l *LibvirtLXCBackend) ConfigureNetworking(config NetworkConfig) (*NetworkInfo, error) {
-			l.bridgeAddr, l.bridgeNet, err = net.ParseCIDR(config.Subnet)
-			if err != nil {
-				return nil, err
-			}
+func (l *LibvirtLXCBackend) ConfigureNetworking(config host.NetworkConfig) (*NetworkInfo, error) {
+	l.bridgeAddr, l.bridgeNet, err = net.ParseCIDR(config.Subnet)
+	if err != nil {
+		return nil, err
+	}
 	l.ipalloc.RequestIP(l.bridgeNet, l.bridgeAddr)
 
 	err = netlink.CreateBridge(bridgeName, false)
@@ -296,7 +295,7 @@ func (l *LibvirtLXCBackend) ConfigureNetworking(config NetworkConfig) (*NetworkI
 		}
 	}
 
-	return  nil
+	return nil
 }
 
 var libvirtAttempts = attempt.Strategy{

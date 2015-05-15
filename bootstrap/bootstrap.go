@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"reflect"
 	"time"
@@ -22,15 +23,17 @@ type State struct {
 	Providers  map[string]*ct.Provider
 	Singleton  bool
 	ClusterURL string
-	Instances  []string
-	Hosts      []cluster.Host
+	MinHosts   int
+	Hosts      []*cluster.Host
+	HostURLs   []string
 
-	controllerc   *controller.Client
+	discoverd     *discoverd.Client
+	controller    *controller.Client
 	controllerKey string
 }
 
 func (s *State) ControllerClient() (*controller.Client, error) {
-	if s.controllerc == nil {
+	if s.controller == nil {
 		disc, err := s.DiscoverdClient()
 		if err != nil {
 			return nil, err
@@ -43,9 +46,9 @@ func (s *State) ControllerClient() (*controller.Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.controllerc = cc
+		s.controller = cc
 	}
-	return s.controllerc, nil
+	return s.controller, nil
 }
 
 func (s *State) SetControllerKey(key string) {
@@ -53,12 +56,18 @@ func (s *State) SetControllerKey(key string) {
 }
 
 func (s *State) DiscoverdClient() (*discoverd.Client, error) {
-	// connect to host
-	return nil, nil
+	if s.discoverd == nil {
+		host, _, err := net.SplitHostPort(s.Hosts[0].Addr())
+		if err != nil {
+			return nil, err
+		}
+		s.discoverd = discoverd.NewClientWithURL(fmt.Sprintf("http://%s:1111", host))
+	}
+	return s.discoverd, nil
 }
 
-func (s *State) ShuffledHosts() []cluster.Host {
-	hosts := make([]cluster.Host, len(s.Hosts))
+func (s *State) ShuffledHosts() []*cluster.Host {
+	hosts := make([]*cluster.Host, len(s.Hosts))
 	copy(hosts, s.Hosts)
 	for i := len(hosts) - 1; i > 0; i-- {
 		j := random.Math.Intn(i + 1)
@@ -124,6 +133,7 @@ func Run(manifest []byte, ch chan<- *StepInfo, minHosts int) (err error) {
 		StepData:  make(map[string]interface{}),
 		Providers: make(map[string]*ct.Provider),
 		Singleton: minHosts == 1,
+		MinHosts:  minHosts,
 	}
 	if s := os.Getenv("SINGLETON"); s != "" {
 		state.Singleton = s == "true"
@@ -184,9 +194,9 @@ func checkOnlineHosts(count int, state *State) error {
 
 		online = len(instances)
 		if online >= count {
-			state.Hosts = make([]cluster.Host, online)
+			state.Hosts = make([]*cluster.Host, online)
 			for i, inst := range instances {
-				state.Hosts[i] = cluster.NewHostClient(inst.Name, inst.URL, nil)
+				state.Hosts[i] = cluster.NewHost(inst.Name, inst.URL, nil)
 			}
 			// TODO: ping all instances
 			break

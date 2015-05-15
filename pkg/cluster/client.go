@@ -48,14 +48,14 @@ type Client struct {
 }
 
 // Hosts returns a list of hosts in the cluster.
-func (c *Client) Hosts() ([]Host, error) {
+func (c *Client) Hosts() ([]*Host, error) {
 	insts, err := c.s.Instances()
 	if err != nil {
 		return nil, err
 	}
-	hosts := make([]Host, len(insts))
+	hosts := make([]*Host, len(insts))
 	for i, inst := range insts {
-		hosts[i] = NewHostClient(inst.ID, inst.Addr, c.h)
+		hosts[i] = NewHost(inst.ID, inst.Addr, c.h)
 	}
 	return hosts, nil
 }
