@@ -138,12 +138,10 @@ func (r *JobRepo) List(appID string) ([]*ct.Job, error) {
 }
 
 type clusterClient interface {
-	ListHosts() ([]host.Host, error)
-	DialHost(string) (cluster.Host, error)
-	AddJobs(map[string][]*host.Job) (map[string]host.Host, error)
+	Hosts() ([]*cluster.Host, error)
 }
 
-func (c *controllerAPI) connectHost(ctx context.Context) (cluster.Host, string, error) {
+func (c *controllerAPI) connectHost(ctx context.Context) (*cluster.Host, string, error) {
 	params, _ := ctxhelper.ParamsFromContext(ctx)
 	hostID, jobID, err := cluster.ParseJobID(params.ByName("jobs_id"))
 	if err != nil {
@@ -151,11 +149,21 @@ func (c *controllerAPI) connectHost(ctx context.Context) (cluster.Host, string, 
 		return nil, jobID, err
 	}
 
-	client, err := c.clusterClient.DialHost(hostID)
+	hosts, err := c.clusterClient.Hosts()
 	if err != nil {
 		return nil, jobID, err
 	}
-	return client, jobID, nil
+	var host *cluster.Host
+	for _, h := range hosts {
+		if h.ID() == hostID {
+			host = h
+			break
+		}
+	}
+	if host == nil {
+		return nil, jobID, fmt.Errorf("controller: unknown host %q", hostID)
+	}
+	return host, jobID, nil
 }
 
 func (c *controllerAPI) ListJobs(ctx context.Context, w http.ResponseWriter, req *http.Request) {
@@ -240,7 +248,7 @@ func (c *controllerAPI) RunJob(ctx context.Context, w http.ResponseWriter, req *
 	artifact := data.(*ct.Artifact)
 	attach := strings.Contains(req.Header.Get("Upgrade"), "flynn-attach/0")
 
-	hosts, err := c.clusterClient.ListHosts()
+	hosts, err := c.clusterClient.Hosts()
 	if err != nil {
 		respondWithError(w, err)
 		return
@@ -249,7 +257,7 @@ func (c *controllerAPI) RunJob(ctx context.Context, w http.ResponseWriter, req *
 		respondWithError(w, errors.New("no hosts found"))
 		return
 	}
-	hostID := schedutil.PickHost(hosts).ID
+	client := schedutil.PickHost(hosts)
 
 	id := cluster.RandomJobID("")
 	app := c.getApp(ctx)
@@ -257,7 +265,7 @@ func (c *controllerAPI) RunJob(ctx context.Context, w http.ResponseWriter, req *
 	env["FLYNN_APP_ID"] = app.ID
 	env["FLYNN_RELEASE_ID"] = release.ID
 	env["FLYNN_PROCESS_TYPE"] = ""
-	env["FLYNN_JOB_ID"] = hostID + "-" + id
+	env["FLYNN_JOB_ID"] = client.ID() + "-" + id
 	if newJob.ReleaseEnv {
 		for k, v := range release.Env {
 			env[k] = v
@@ -302,11 +310,6 @@ func (c *controllerAPI) RunJob(ctx context.Context, w http.ResponseWriter, req *
 			Height: uint16(newJob.Lines),
 			Width:  uint16(newJob.Columns),
 		}
-		client, err := c.clusterClient.DialHost(hostID)
-		if err != nil {
-			respondWithError(w, fmt.Errorf("host connect failed: %s", err.Error()))
-			return
-		}
 		attachClient, err = client.Attach(attachReq, true)
 		if err != nil {
 			respondWithError(w, fmt.Errorf("attach failed: %s", err.Error()))
@@ -315,8 +318,7 @@ func (c *controllerAPI) RunJob(ctx context.Context, w http.ResponseWriter, req *
 		defer attachClient.Close()
 	}
 
-	_, err = c.clusterClient.AddJobs(map[string][]*host.Job{hostID: {job}})
-	if err != nil {
+	if err := client.AddJob(job); err != nil {
 		respondWithError(w, fmt.Errorf("schedule failed: %s", err.Error()))
 		return
 	}
@@ -348,7 +350,7 @@ func (c *controllerAPI) RunJob(ctx context.Context, w http.ResponseWriter, req *
 		return
 	} else {
 		httphelper.JSON(w, 200, &ct.Job{
-			ID:        hostID + "-" + job.ID,
+			ID:        client.ID() + "-" + job.ID,
 			ReleaseID: newJob.ReleaseID,
 			Cmd:       newJob.Cmd,
 		})

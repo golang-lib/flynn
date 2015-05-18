@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -21,7 +22,6 @@ import (
 	"github.com/flynn/flynn/pkg/httphelper"
 	"github.com/flynn/flynn/pkg/shutdown"
 	"github.com/flynn/flynn/pkg/sse"
-	"github.com/tav/golly/log"
 )
 
 type Host struct {
@@ -186,7 +186,7 @@ func (h *jobAPI) ConfigureDiscoverd(w http.ResponseWriter, r *http.Request, _ ht
 
 	go func() {
 		if err := h.connectDiscoverd(config.URL); err != nil {
-			log.Error(err)
+			log.Printf("Error connecting to discoverd: %s - %s", config.URL, err)
 			return
 		}
 	}()
