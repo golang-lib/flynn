@@ -38,7 +38,7 @@ type Cmd struct {
 	cluster ClusterClient
 
 	// host is used to communicate with the host that the job will run on
-	host cluster.Host
+	host *cluster.Host
 
 	// started is true if Start has been called
 	started bool
@@ -94,9 +94,7 @@ func Job(artifact host.Artifact, job *host.Job) *Cmd {
 }
 
 type ClusterClient interface {
-	ListHosts() ([]host.Host, error)
-	AddJobs(map[string][]*host.Job) (map[string]host.Host, error)
-	DialHost(string) (cluster.Host, error)
+	Hosts() ([]*cluster.Host, error)
 }
 
 func CommandUsingCluster(c ClusterClient, artifact host.Artifact, cmd ...string) *Cmd {
@@ -156,7 +154,7 @@ func (c *Cmd) Start() error {
 	c.started = true
 	if c.cluster == nil {
 		var err error
-		c.cluster, err = cluster.NewClient()
+		c.cluster = cluster.NewClient()
 		if err != nil {
 			return err
 		}
@@ -164,14 +162,16 @@ func (c *Cmd) Start() error {
 	}
 
 	if c.HostID == "" {
-		hosts, err := c.cluster.ListHosts()
+		hosts, err := c.cluster.Hosts()
 		if err != nil {
 			return err
 		}
 		if len(hosts) == 0 {
 			return errors.New("exec: no hosts found")
 		}
-		c.HostID = schedutil.PickHost(hosts).ID
+		host := schedutil.PickHost(hosts)
+		c.HostID = host.ID()
+		c.host = host
 	}
 
 	// Use the pre-defined host.Job configuration if provided;
@@ -200,10 +200,20 @@ func (c *Cmd) Start() error {
 		c.Job.ID = cluster.RandomJobID("")
 	}
 
-	var err error
-	c.host, err = c.cluster.DialHost(c.HostID)
-	if err != nil {
-		return err
+	if c.host == nil {
+		hosts, err := c.cluster.Hosts()
+		if err != nil {
+			return err
+		}
+		for _, h := range hosts {
+			if c.HostID == h.ID() {
+				c.host = h
+				break
+			}
+		}
+		if c.host == nil {
+			return fmt.Errorf("exec: unknown host %q", c.HostID)
+		}
 	}
 
 	if c.Stdout != nil || c.Stderr != nil || c.Stdin != nil || c.stdinPipe != nil {
@@ -271,8 +281,7 @@ func (c *Cmd) Start() error {
 		}
 	}()
 
-	_, err = c.cluster.AddJobs(map[string][]*host.Job{c.HostID: {c.Job}})
-	return err
+	return c.host.AddJob(c.Job)
 }
 
 func (c *Cmd) close() {

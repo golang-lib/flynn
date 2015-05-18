@@ -9,8 +9,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/flynn/flynn/Godeps/_workspace/src/golang.org/x/crypto/ssh"
 	"github.com/flynn/flynn/pkg/version"
-	"golang.org/x/crypto/ssh"
 )
 
 type DiscoveryInfo struct {
