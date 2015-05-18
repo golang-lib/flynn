@@ -95,6 +95,7 @@ func Job(artifact host.Artifact, job *host.Job) *Cmd {
 
 type ClusterClient interface {
 	Hosts() ([]*cluster.Host, error)
+	Host(string) (*cluster.Host, error)
 }
 
 func CommandUsingCluster(c ClusterClient, artifact host.Artifact, cmd ...string) *Cmd {
@@ -201,18 +202,10 @@ func (c *Cmd) Start() error {
 	}
 
 	if c.host == nil {
-		hosts, err := c.cluster.Hosts()
+		var err error
+		c.host, err = c.cluster.Host(c.HostID)
 		if err != nil {
 			return err
-		}
-		for _, h := range hosts {
-			if c.HostID == h.ID() {
-				c.host = h
-				break
-			}
-		}
-		if c.host == nil {
-			return fmt.Errorf("exec: unknown host %q", c.HostID)
 		}
 	}
 
