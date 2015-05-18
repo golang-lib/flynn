@@ -138,6 +138,7 @@ func (r *JobRepo) List(appID string) ([]*ct.Job, error) {
 }
 
 type clusterClient interface {
+	Host(string) (*cluster.Host, error)
 	Hosts() ([]*cluster.Host, error)
 }
 
@@ -149,21 +150,8 @@ func (c *controllerAPI) connectHost(ctx context.Context) (*cluster.Host, string,
 		return nil, jobID, err
 	}
 
-	hosts, err := c.clusterClient.Hosts()
-	if err != nil {
-		return nil, jobID, err
-	}
-	var host *cluster.Host
-	for _, h := range hosts {
-		if h.ID() == hostID {
-			host = h
-			break
-		}
-	}
-	if host == nil {
-		return nil, jobID, fmt.Errorf("controller: unknown host %q", hostID)
-	}
-	return host, jobID, nil
+	host, err := c.clusterClient.Host(hostID)
+	return host, jobID, err
 }
 
 func (c *controllerAPI) ListJobs(ctx context.Context, w http.ResponseWriter, req *http.Request) {

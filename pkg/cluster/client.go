@@ -3,6 +3,7 @@ package cluster
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/flynn/flynn/discoverd/client"
@@ -45,6 +46,20 @@ func newClient(services ServiceFunc, hc *http.Client) *Client {
 type Client struct {
 	s discoverd.Service
 	h *http.Client
+}
+
+// Host returns the host identified by id.
+func (c *Client) Host(id string) (*Host, error) {
+	hosts, err := c.Hosts()
+	if err != nil {
+		return nil, err
+	}
+	for _, h := range hosts {
+		if h.ID() == id {
+			return h, nil
+		}
+	}
+	return nil, fmt.Errorf("cluster: unknown host %q", id)
 }
 
 // Hosts returns a list of hosts in the cluster.

@@ -59,9 +59,7 @@ func (h *Helper) clusterClient(t *c.C) *cluster.Client {
 	h.clusterMtx.Lock()
 	defer h.clusterMtx.Unlock()
 	if h.cluster == nil {
-		client, err := cluster.NewClientWithServices(h.discoverdClient(t).Service)
-		t.Assert(err, c.IsNil)
-		h.cluster = client
+		h.cluster = cluster.NewClientWithServices(h.discoverdClient(t).Service)
 	}
 	return h.cluster
 }
@@ -98,8 +96,9 @@ func (h *Helper) hostClient(t *c.C, hostID string) cluster.Host {
 	if client, ok := h.hosts[hostID]; ok {
 		return client
 	}
-	client, err := h.clusterClient(t).DialHost(hostID)
+	hosts, err := h.clusterClient(t).Hosts()
 	t.Assert(err, c.IsNil)
+	client, err := h.clusterClient(t).DialHost(hostID)
 	h.hosts[hostID] = client
 	return client
 }
