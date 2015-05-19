@@ -42,11 +42,7 @@ func main() {
 	if err != nil {
 		shutdown.Fatal(err)
 	}
-	cl, err := cluster.NewClient()
-	if err != nil {
-		shutdown.Fatal(err)
-	}
-	c := newContext(cc, cl)
+	c := newContext(cc, cluster.NewClient())
 
 	c.watchHosts()
 
@@ -104,10 +100,8 @@ type context struct {
 }
 
 type clusterClient interface {
-	ListHosts() ([]host.Host, error)
-	AddJobs(jobs map[string][]*host.Job) (map[string]host.Host, error)
-	DialHost(id string) (cluster.Host, error)
-	StreamHostEvents(ch chan<- *host.HostEvent) (stream.Stream, error)
+	Hosts() ([]*host.Host, error)
+	Host(string) (*host.Host, error)
 }
 
 type controllerClient interface {
@@ -138,7 +132,7 @@ func (c *context) syncCluster() {
 	releases := make(map[string]*ct.Release)
 	rectify := make(map[*Formation]struct{})
 
-	hosts, err := c.ListHosts()
+	hosts, err := c.Hosts()
 	if err != nil {
 		// TODO: log/handle error
 	}
