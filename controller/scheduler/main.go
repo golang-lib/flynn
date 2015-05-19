@@ -100,8 +100,8 @@ type context struct {
 }
 
 type clusterClient interface {
-	Hosts() ([]*host.Host, error)
-	Host(string) (*host.Host, error)
+	Hosts() ([]*cluster.Host, error)
+	Host(string) (*cluster.Host, error)
 }
 
 type controllerClient interface {
@@ -139,7 +139,13 @@ func (c *context) syncCluster() {
 
 	c.mtx.Lock()
 	for _, h := range hosts {
-		for _, job := range h.Jobs {
+		jobs, err := h.ListJobs()
+		if err != nil {
+			// TODO: log/handle error
+			continue
+		}
+		for _, j := range jobs {
+			job := j.Job
 			appID := job.Metadata["flynn-controller.app"]
 			appName := job.Metadata["flynn-controller.app_name"]
 			releaseID := job.Metadata["flynn-controller.release"]
@@ -149,7 +155,7 @@ func (c *context) syncCluster() {
 			if appID == "" || releaseID == "" {
 				continue
 			}
-			if job := c.jobs.Get(h.ID, job.ID); job != nil {
+			if job := c.jobs.Get(h.ID(), job.ID); job != nil {
 				continue
 			}
 
@@ -193,14 +199,14 @@ func (c *context) syncCluster() {
 
 			gg.Log(grohl.Data{"at": "addJob"})
 			go c.PutJob(&ct.Job{
-				ID:        h.ID + "-" + job.ID,
+				ID:        h.ID() + "-" + job.ID,
 				AppID:     appID,
 				ReleaseID: releaseID,
 				Type:      jobType,
 				State:     "up",
 				Meta:      jobMetaFromMetadata(job.Metadata),
 			})
-			j := f.jobs.Add(jobType, h.ID, job.ID)
+			j := f.jobs.Add(jobType, h.ID(), job.ID)
 			j.Formation = f
 			c.jobs.Add(j)
 			rectify[f] = struct{}{}
@@ -311,7 +317,7 @@ func (c *context) watchFormations() {
 }
 
 func (c *context) watchHosts() {
-	hosts, err := c.ListHosts()
+	hosts, err := c.Hosts()
 	if err != nil {
 		// TODO: log/handle error
 	}
@@ -335,7 +341,7 @@ func (c *context) watchHosts() {
 
 	ready := make(chan struct{}, len(hosts))
 	for _, h := range hosts {
-		go c.watchHost(h.ID, ready)
+		go c.watchHost(h.ID(), ready)
 	}
 	for range hosts {
 		<-ready
