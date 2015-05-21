@@ -102,6 +102,7 @@ type context struct {
 type clusterClient interface {
 	Hosts() ([]*cluster.Host, error)
 	Host(string) (*cluster.Host, error)
+	StreamHosts(chan *cluster.Host) (stream.Stream, error)
 }
 
 type controllerClient interface {
@@ -317,19 +318,19 @@ func (c *context) watchFormations() {
 }
 
 func (c *context) watchHosts() {
-	hosts, err := c.Hosts()
-	if err != nil {
-		// TODO: log/handle error
-	}
-
+	ready := make(chan struct{})
 	go func() { // watch for new hosts
-		ch := make(chan *host.HostEvent)
-		c.StreamHostEvents(ch)
-		for event := range ch {
-			if event.Event != "add" {
-				continue
+		ch := make(chan *cluster.Host)
+		_, err := c.StreamHosts(ch)
+		if err != nil {
+			panic(err)
+		}
+		for h := range ch {
+			if h == nil {
+				close(ready)
 			}
-			go c.watchHost(event.HostID, nil)
+
+			go c.watchHost(h, nil)
 
 			c.omniMtx.RLock()
 			for f := range c.omni {
@@ -339,14 +340,7 @@ func (c *context) watchHosts() {
 		}
 	}()
 
-	ready := make(chan struct{}, len(hosts))
-	for _, h := range hosts {
-		go c.watchHost(h.ID(), ready)
-	}
-	for range hosts {
-		<-ready
-	}
-
+	<-ready
 }
 
 var putJobAttempts = attempt.Strategy{
@@ -376,7 +370,7 @@ var dialHostAttempts = attempt.Strategy{
 	Delay: 200 * time.Millisecond,
 }
 
-func (c *context) watchHost(id string, ready chan struct{}) {
+func (c *context) watchHost(h *cluster.Host, ready chan struct{}) {
 	if !c.hosts.Add(id) {
 		if ready != nil {
 			ready <- struct{}{}

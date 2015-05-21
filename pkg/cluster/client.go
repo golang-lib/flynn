@@ -8,6 +8,7 @@ import (
 
 	"github.com/flynn/flynn/discoverd/client"
 	"github.com/flynn/flynn/pkg/dialer"
+	"github.com/flynn/flynn/pkg/stream"
 )
 
 // NewClient uses the default discoverd configuration to create a cluster
@@ -73,4 +74,26 @@ func (c *Client) Hosts() ([]*Host, error) {
 		hosts[i] = NewHost(inst.ID, inst.Addr, c.h)
 	}
 	return hosts, nil
+}
+
+func (c *Client) StreamHosts(ch chan *Host) (stream.Stream, error) {
+	events := make(chan *discoverd.Event)
+	stream, err := c.s.Watch(events)
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		for e := range events {
+			if e.Kind == discoverd.EventKindCurrent {
+				// sentinel to indicate that we are now current
+				ch <- nil
+				continue
+			}
+			if e.Kind != discoverd.EventKindUp {
+				continue
+			}
+			ch <- NewHost(e.Instance.ID, e.Instance.Addr, c.h)
+		}
+	}()
+	return stream, nil
 }
