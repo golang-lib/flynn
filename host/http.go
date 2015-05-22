@@ -67,8 +67,8 @@ type jobAPI struct {
 
 	statusMtx sync.RWMutex
 	status    struct {
-		DiscoverdURL string            `json:"discoverd_url,omitempty"`
-		Networking   *NetworkingConfig `json:"networking,omitempty"`
+		DiscoverdURL string              `json:"discoverd_url,omitempty"`
+		Networking   *host.NetworkConfig `json:"networking,omitempty"`
 	}
 }
 
@@ -203,7 +203,7 @@ func (h *jobAPI) ConfigureNetworking(w http.ResponseWriter, r *http.Request, _ h
 	h.statusMtx.Unlock()
 
 	go func() {
-		if _, err := h.backend.ConfigureNetworking(config); err != nil {
+		if err := h.backend.ConfigureNetworking(config); err != nil {
 			shutdown.Fatal(err)
 		}
 	}()

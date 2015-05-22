@@ -30,7 +30,7 @@ type Backend interface {
 	Attach(*AttachRequest) error
 	Cleanup() error
 	UnmarshalState(map[string]*host.ActiveJob, map[string][]byte, []byte) error
-	ConfigureNetworking(config host.NetworkConfig) (*NetworkInfo, error)
+	ConfigureNetworking(config host.NetworkConfig) error
 	SetDefaultEnv(k, v string)
 }
 
