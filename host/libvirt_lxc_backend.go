@@ -175,6 +175,7 @@ var networkConfigAttempts = attempt.Strategy{
 // strategy and identifier of the networking coordinatior job. Currently the
 // only strategy implemented uses flannel.
 func (l *LibvirtLXCBackend) ConfigureNetworking(config host.NetworkConfig) error {
+	var err error
 	l.bridgeAddr, l.bridgeNet, err = net.ParseCIDR(config.Subnet)
 	if err != nil {
 		return err

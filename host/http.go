@@ -162,8 +162,8 @@ func (h *jobAPI) AddJob(w http.ResponseWriter, r *http.Request, ps httprouter.Pa
 
 	go func() {
 		// TODO(titanous): ratelimit this goroutine?
-		if err := backend.Run(job, nil); err != nil {
-			state.SetStatusFailed(job.ID, err)
+		if err := h.host.backend.Run(job, nil); err != nil {
+			h.host.state.SetStatusFailed(job.ID, err)
 		}
 	}()
 
@@ -203,7 +203,7 @@ func (h *jobAPI) ConfigureNetworking(w http.ResponseWriter, r *http.Request, _ h
 	h.statusMtx.Unlock()
 
 	go func() {
-		if err := h.backend.ConfigureNetworking(config); err != nil {
+		if err := h.host.backend.ConfigureNetworking(config); err != nil {
 			shutdown.Fatal(err)
 		}
 	}()
@@ -244,14 +244,14 @@ func (h *jobAPI) RegisterRoutes(r *httprouter.Router) error {
 func serveHTTP(host *Host, attach *attachHandler, clus *cluster.Client, vman *volumemanager.Manager, connectDiscoverd func(string) error) error {
 	l, err := net.Listen("tcp", ":1113")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	r := httprouter.New()
 
 	r.POST("/attach", attach.ServeHTTP)
 
-	jobAPI := &jobAPI{host, connectDiscoverd}
+	jobAPI := &jobAPI{host: host, connectDiscoverd: connectDiscoverd}
 	jobAPI.RegisterRoutes(r)
 	volAPI := volumeapi.NewHTTPAPI(clus, vman)
 	volAPI.RegisterRoutes(r)

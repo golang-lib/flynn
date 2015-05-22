@@ -134,6 +134,7 @@ func runDaemon(args *docopt.Args) {
 
 	grohl.AddContext("app", "host")
 	grohl.Log(grohl.Data{"at": "start"})
+	g := grohl.NewContext(grohl.Data{"fn": "main"})
 
 	if hostID == "" {
 		hostID = strings.Replace(hostname, "-", "", -1)
@@ -233,6 +234,7 @@ func runDaemon(args *docopt.Args) {
 		}
 		discoverdConfigured = true
 		backend.SetDefaultEnv("DISCOVERD", url)
+		return nil
 	}
 
 	var cluster *cluster.Client
