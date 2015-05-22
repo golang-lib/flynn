@@ -63,12 +63,8 @@ func runUpdate(args *docopt.Args) error {
 	}
 
 	log.Info("getting host list")
-	clusterClient, err := cluster.NewClient()
-	if err != nil {
-		log.Error("error creating cluster client", "err", err)
-		return err
-	}
-	hosts, err := clusterClient.ListHosts()
+	clusterClient := cluster.NewClient()
+	hosts, err := clusterClient.Hosts()
 	if err != nil {
 		log.Error("error getting host list", "err", err)
 		return err
