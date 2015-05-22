@@ -56,7 +56,7 @@ func jobList(client *cluster.Client, all bool) (sortJobs, error) {
 	for _, h := range hosts {
 		hostJobs, err := h.ListJobs()
 		if err != nil {
-			return nil, fmt.Errorf("could not get jobs for host %s: %s", host.ID, err)
+			return nil, fmt.Errorf("could not get jobs for host %s: %s", h.ID(), err)
 		}
 		for _, job := range hostJobs {
 			jobs = append(jobs, job)

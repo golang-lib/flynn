@@ -174,17 +174,17 @@ var networkConfigAttempts = attempt.Strategy{
 // ConfigureNetworking is called once during host startup and passed the
 // strategy and identifier of the networking coordinatior job. Currently the
 // only strategy implemented uses flannel.
-func (l *LibvirtLXCBackend) ConfigureNetworking(config host.NetworkConfig) (*NetworkInfo, error) {
+func (l *LibvirtLXCBackend) ConfigureNetworking(config host.NetworkConfig) error {
 	l.bridgeAddr, l.bridgeNet, err = net.ParseCIDR(config.Subnet)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	l.ipalloc.RequestIP(l.bridgeNet, l.bridgeAddr)
 
 	err = netlink.CreateBridge(bridgeName, false)
 	bridgeExists := os.IsExist(err)
 	if err != nil && !bridgeExists {
-		return nil, err
+		return err
 	}
 
 	bridge, err := net.InterfaceByName(bridgeName)
@@ -255,7 +255,7 @@ func (l *LibvirtLXCBackend) ConfigureNetworking(config host.NetworkConfig) (*Net
 
 	// enable IP forwarding
 	if err := ioutil.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte("1\n"), 0644); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Set up iptables for outbound traffic masquerading from containers to the
