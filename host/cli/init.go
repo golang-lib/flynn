@@ -20,22 +20,17 @@ func init() {
 usage: flynn-host init [options]
 
 options:
-  --init-discovery=N  create a discovery token with an initial cluster size of N
-  --discovery=TOKEN   enable cluster discovery with token
-  --peers=PEERS       comma-separated list of initial cluster peer IPs
-  --join              join an existing cluster
+  --init-discovery    create a discovery token
+  --discovery=TOKEN   join cluster with discovery token
+  --peer=IP           join cluster 
   --external=IP       external IP address of host, defaults to the first IPv4 address of eth0
-  --no-consensus      don't participate in cluster consensus
   --file=NAME         file to write to [default: /etc/flynn/host.json]
   `)
 }
 
 func runInit(args *docopt.Args) error {
 	discoveryToken := args.String["--discovery"]
-	if n, ok := args.String["--init-discovery"]; ok {
-		if n == "1" {
-			return errors.New("There is no need for a discovery token when starting a single node cluster.")
-		}
+	if args.Bool["--init-discovery"] {
 		var err error
 		discoveryToken, err = etcdcluster.NewDiscoveryToken(n)
 		if err != nil {

@@ -21,6 +21,7 @@ usage: flynn-host bootstrap [--min-hosts=<min>] [--json] [<manifest>]
 Options:
   -n, --min-hosts=<min>  minimum number of hosts required to be online [default: 1]
   --json                 format log output as json
+  --discovery 
 
 Bootstrap layer 1 using the provided manifest`)
 }
