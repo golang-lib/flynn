@@ -64,3 +64,10 @@ func ProvisionVolume(h *cluster.Host, job *host.Job) error {
 	}}
 	return nil
 }
+
+type HostClient interface {
+	ID() string
+	AddJob(*host.Job) error
+	Attach(*host.AttachReq, bool) (cluster.AttachClient, error)
+	StopJob(string) error
+}
