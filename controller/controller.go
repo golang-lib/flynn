@@ -96,7 +96,7 @@ func main() {
 
 	handler := appHandler(handlerConfig{
 		db:      db,
-		cc:      cluster.NewClient(),
+		cc:      clusterClientWrapper{cluster.NewClient()},
 		lc:      lc,
 		rc:      rc,
 		pgxpool: pgxpool,

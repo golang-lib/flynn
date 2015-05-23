@@ -15,13 +15,14 @@ import (
 	"github.com/flynn/flynn/Godeps/_workspace/src/golang.org/x/net/context"
 	"github.com/flynn/flynn/controller/schema"
 	ct "github.com/flynn/flynn/controller/types"
+	"github.com/flynn/flynn/controller/utils"
 	"github.com/flynn/flynn/host/resource"
 	"github.com/flynn/flynn/host/types"
 	"github.com/flynn/flynn/pkg/cluster"
 	"github.com/flynn/flynn/pkg/ctxhelper"
 	"github.com/flynn/flynn/pkg/httphelper"
 	"github.com/flynn/flynn/pkg/postgres"
-	"github.com/flynn/flynn/pkg/schedutil"
+	"github.com/flynn/flynn/pkg/random"
 )
 
 /* SSE Logger */
@@ -137,12 +138,32 @@ func (r *JobRepo) List(appID string) ([]*ct.Job, error) {
 	return jobs, nil
 }
 
-type clusterClient interface {
-	Host(string) (*cluster.Host, error)
-	Hosts() ([]*cluster.Host, error)
+type clusterClientWrapper struct {
+	*cluster.Client
 }
 
-func (c *controllerAPI) connectHost(ctx context.Context) (*cluster.Host, string, error) {
+func (c clusterClientWrapper) Host(id string) (utils.HostClient, error) {
+	return c.Client.Host(id)
+}
+
+func (c clusterClientWrapper) Hosts() ([]utils.HostClient, error) {
+	hosts, err := c.Client.Hosts()
+	if err != nil {
+		return nil, err
+	}
+	res := make([]utils.HostClient, len(hosts))
+	for i, h := range hosts {
+		res[i] = h
+	}
+	return res, nil
+}
+
+type clusterClient interface {
+	Host(string) (utils.HostClient, error)
+	Hosts() ([]utils.HostClient, error)
+}
+
+func (c *controllerAPI) connectHost(ctx context.Context) (utils.HostClient, string, error) {
 	params, _ := ctxhelper.ParamsFromContext(ctx)
 	hostID, jobID, err := cluster.ParseJobID(params.ByName("jobs_id"))
 	if err != nil {
@@ -245,7 +266,7 @@ func (c *controllerAPI) RunJob(ctx context.Context, w http.ResponseWriter, req *
 		respondWithError(w, errors.New("no hosts found"))
 		return
 	}
-	client := schedutil.PickHost(hosts)
+	client := hosts[random.Math.Intn(len(hosts))]
 
 	id := cluster.RandomJobID("")
 	app := c.getApp(ctx)
