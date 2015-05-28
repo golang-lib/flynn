@@ -7,19 +7,20 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"runtime"
 	"time"
 
 	"github.com/flynn/flynn/Godeps/_workspace/src/golang.org/x/crypto/ssh"
 	"github.com/flynn/flynn/pkg/version"
 )
 
-type DiscoveryInfo struct {
+type Info struct {
 	ClusterURL  string
 	InstanceURL string
 	Name        string
 }
 
-type DiscoveryInstance struct {
+type Instance struct {
 	ID            string         `json:"id,omitempty"`
 	ClusterID     string         `json:"cluster_id,omitempty"`
 	FlynnVersion  string         `json:"flynn_version,omitempty"`
@@ -34,10 +35,10 @@ type SSHPublicKey struct {
 	Data []byte `json:"data"`
 }
 
-func RegisterInstance(info DiscoveryInfo) (string, error) {
+func RegisterInstance(info Info) (string, error) {
 	data := struct {
-		Data DiscoveryInstance `json:"data"`
-	}{DiscoveryInstance{
+		Data Instance `json:"data"`
+	}{Instance{
 		Name:          info.Name,
 		URL:           info.InstanceURL,
 		SSHPublicKeys: make([]SSHPublicKey, 0, 4),
@@ -81,23 +82,45 @@ func RegisterInstance(info DiscoveryInfo) (string, error) {
 	return data.Data.ID, nil
 }
 
-func GetCluster(uri string) ([]*DiscoveryInstance, error) {
+func GetCluster(uri string) ([]*Instance, error) {
 	res, err := http.Get(uri)
 	if err != nil {
 		return nil, err
 	}
 	if res.StatusCode != 200 {
-		return nil, &url.Error{
-			Op:  "GET",
-			URL: uri,
-			Err: fmt.Errorf("unexpected status %d", res.StatusCode),
-		}
+		return nil, urlError(uri, res.StatusCode)
 	}
 	defer res.Body.Close()
 
 	var data struct {
-		Data []*DiscoveryInstance `json:"data"`
+		Data []*Instance `json:"data"`
 	}
 	err = json.NewDecoder(res.Body).Decode(&data)
 	return data.Data, err
+}
+
+func NewToken() (string, error) {
+	const uri = "https://discovery.flynn.io/clusters"
+	req, err := http.NewRequest("POST", uri, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", fmt.Sprintf("flynn-host/%s %s-%s", version.String(), runtime.GOOS, runtime.GOARCH))
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	if res.StatusCode != http.StatusCreated {
+		return "", urlError(uri, res.StatusCode)
+	}
+	return res.Header.Get("Location"), nil
+}
+
+func urlError(uri string, status int) error {
+	return &url.Error{
+		Op:  "GET",
+		URL: uri,
+		Err: fmt.Errorf("unexpected status %d", status),
+	}
+
 }

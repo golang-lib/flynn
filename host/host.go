@@ -11,6 +11,7 @@ import (
 
 	"github.com/flynn/flynn/Godeps/_workspace/src/github.com/flynn/go-docopt"
 	"github.com/flynn/flynn/Godeps/_workspace/src/github.com/technoweenie/grohl"
+	"github.com/flynn/flynn/bootstrap/discovery"
 	"github.com/flynn/flynn/discoverd/client"
 	"github.com/flynn/flynn/host/cli"
 	"github.com/flynn/flynn/host/config"
@@ -41,6 +42,8 @@ options:
   --backend=BACKEND      runner backend [default: libvirt-lxc]
   --flynn-init=PATH      path to flynn-init binary [default: /usr/local/bin/flynn-init]
   --log-dir=DIR          directory to store job logs [default: /var/log/flynn]
+  --discovery=TOKEN      join cluster with discovery token
+  --peers=IPs            join existing cluster using IPs
 	`)
 }
 
@@ -131,6 +134,7 @@ func runDaemon(args *docopt.Args) {
 	backendName := args.String["--backend"]
 	flynnInit := args.String["--flynn-init"]
 	logDir := args.String["--log-dir"]
+	discoveryToken := args.String["--discovery"]
 
 	grohl.AddContext("app", "host")
 	grohl.Log(grohl.Data{"at": "start"})
@@ -148,6 +152,20 @@ func runDaemon(args *docopt.Args) {
 		if err != nil {
 			shutdown.Fatal(err)
 		}
+	}
+
+	if discoveryToken != "" {
+		// TODO: retry
+		discoveryID, err := discovery.RegisterInstance(discovery.Info{
+			ClusterURL:  discoveryToken,
+			InstanceURL: fmt.Sprintf("http://%s:1113", externalAddr),
+			ID:          hostID,
+		})
+		if err != nil {
+			g.Log(grohl.Data{"at": "register_discovery", "status": "error", "err": err.Error()})
+			shutdown.Fatal(err)
+		}
+		g.Log(grohl.Data{"at": "register_discovery", "id": discoveryID})
 	}
 
 	state := NewState(hostID, stateFile)
