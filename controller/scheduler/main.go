@@ -721,10 +721,10 @@ func (f *Formation) rectify() {
 		if f.Release.Processes[t].Omni {
 			// get job counts per host
 			hostCounts := make(map[string]int, len(hosts))
+			for _, h := range hosts {
+				hostCounts[h.ID()] = 0
+			}
 			for k := range f.jobs[t] {
-				if _, ok := hostCounts[k.hostID]; !ok {
-					hostCounts[k.hostID] = 0
-				}
 				hostCounts[k.hostID]++
 			}
 			// update per host
