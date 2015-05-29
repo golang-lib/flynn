@@ -27,9 +27,6 @@ func (a *WaitHostsAction) Run(s *State) error {
 outer:
 	for {
 		for h := range hosts {
-			if up >= s.MinHosts {
-				break outer
-			}
 			status, err := h.GetStatus()
 			if err != nil {
 				continue
@@ -38,6 +35,9 @@ outer:
 				delete(hosts, h)
 				up++
 			}
+		}
+		if up >= s.MinHosts {
+			break outer
 		}
 
 		if time.Now().Sub(start) >= waitMax {

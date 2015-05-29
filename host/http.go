@@ -27,6 +27,7 @@ import (
 type Host struct {
 	state   *State
 	backend Backend
+	id      string
 }
 
 func (h *Host) StopJob(id string) error {
@@ -66,10 +67,7 @@ type jobAPI struct {
 	connectDiscoverd func(string) error
 
 	statusMtx sync.RWMutex
-	status    struct {
-		DiscoverdURL string              `json:"discoverd_url,omitempty"`
-		Networking   *host.NetworkConfig `json:"networking,omitempty"`
-	}
+	status    *host.HostStatus
 }
 
 func (h *jobAPI) ListJobs(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -181,7 +179,7 @@ func (h *jobAPI) ConfigureDiscoverd(w http.ResponseWriter, r *http.Request, _ ht
 	}
 
 	h.statusMtx.Lock()
-	h.status.DiscoverdURL = config.URL
+	h.status.Discoverd = &host.DiscoverdConfig{URL: config.URL}
 	h.statusMtx.Unlock()
 
 	go func() {
@@ -199,7 +197,7 @@ func (h *jobAPI) ConfigureNetworking(w http.ResponseWriter, r *http.Request, _ h
 	}
 
 	h.statusMtx.Lock()
-	h.status.Networking = &config
+	h.status.Network = &config
 	h.statusMtx.Unlock()
 
 	go func() {
@@ -235,13 +233,13 @@ func (h *jobAPI) RegisterRoutes(r *httprouter.Router) error {
 	r.DELETE("/host/jobs/:id", h.StopJob)
 	r.PUT("/host/jobs/:id/signal/:signal", h.SignalJob)
 	r.POST("/host/pull-images", h.PullImages)
-	r.PUT("/host/discoverd", h.ConfigureDiscoverd)
-	r.PUT("/host/network", h.ConfigureNetworking)
+	r.POST("/host/discoverd", h.ConfigureDiscoverd)
+	r.POST("/host/network", h.ConfigureNetworking)
 	r.GET("/host/status", h.GetStatus)
 	return nil
 }
 
-func serveHTTP(host *Host, attach *attachHandler, clus *cluster.Client, vman *volumemanager.Manager, connectDiscoverd func(string) error) error {
+func serveHTTP(h *Host, attach *attachHandler, clus *cluster.Client, vman *volumemanager.Manager, connectDiscoverd func(string) error) error {
 	l, err := net.Listen("tcp", ":1113")
 	if err != nil {
 		return err
@@ -251,7 +249,11 @@ func serveHTTP(host *Host, attach *attachHandler, clus *cluster.Client, vman *vo
 
 	r.POST("/attach", attach.ServeHTTP)
 
-	jobAPI := &jobAPI{host: host, connectDiscoverd: connectDiscoverd}
+	jobAPI := &jobAPI{
+		host:             h,
+		connectDiscoverd: connectDiscoverd,
+		status:           &host.HostStatus{ID: h.id},
+	}
 	jobAPI.RegisterRoutes(r)
 	volAPI := volumeapi.NewHTTPAPI(clus, vman)
 	volAPI.RegisterRoutes(r)

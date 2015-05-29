@@ -45,9 +45,3 @@ type JobStateSaver interface {
 type StateSaver interface {
 	MarshalGlobalState() ([]byte, error)
 }
-
-type NetworkStrategy int
-
-const (
-	NetworkStrategyFlannel NetworkStrategy = iota
-)

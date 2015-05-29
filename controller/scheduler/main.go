@@ -328,6 +328,7 @@ func (c *context) watchHosts() {
 		for h := range ch {
 			if h == nil {
 				close(ready)
+				continue
 			}
 
 			go c.watchHost(h, nil)
@@ -484,12 +485,14 @@ func (h *hostClients) Add(id string) bool {
 func (h *hostClients) Set(id string, client *cluster.Host) {
 	h.mtx.Lock()
 	h.hosts[id] = client
+	h.updateHostList()
 	h.mtx.Unlock()
 }
 
 func (h *hostClients) Remove(id string) {
 	h.mtx.Lock()
 	delete(h.hosts, id)
+	h.updateHostList()
 	h.mtx.Unlock()
 }
 
@@ -796,7 +799,7 @@ func (f *Formation) start(typ string, hostID string) (job *Job, err error) {
 		hosts := f.c.hosts.List()
 		sh := make(sortHosts, 0, len(hosts))
 		for _, host := range hosts {
-			var count int
+			count := 0
 			for k := range f.jobs[typ] {
 				if k.hostID == host.ID() {
 					count++

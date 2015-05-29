@@ -80,11 +80,14 @@ func (a *WaitAction) Run(s *State) error {
 
 func lookupDiscoverdURLHost(u *url.URL, timeout time.Duration) error {
 	if strings.HasSuffix(u.Host, ".discoverd") {
+		fmt.Println(u.Host, "has suffix")
 		instances, err := discoverd.GetInstances(strings.Split(u.Host, ".")[0], timeout)
 		if err != nil {
 			return err
 		}
 		u.Host = instances[0].Addr
+	} else {
+		fmt.Println(u.Host, "doesn't have suffix")
 	}
 	return nil
 }
