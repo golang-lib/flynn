@@ -106,7 +106,7 @@ var discoverdAttempts = attempt.Strategy{
 	Delay: 200 * time.Millisecond,
 }
 
-func Run(manifest []byte, ch chan<- *StepInfo, minHosts int) (err error) {
+func Run(manifest []byte, ch chan<- *StepInfo, clusterURL string, ips []string, minHosts int) (err error) {
 	var a StepAction
 	defer close(ch)
 	defer func() {
@@ -130,13 +130,20 @@ func Run(manifest []byte, ch chan<- *StepInfo, minHosts int) (err error) {
 	}
 
 	state := &State{
-		StepData:  make(map[string]interface{}),
-		Providers: make(map[string]*ct.Provider),
-		Singleton: minHosts == 1,
-		MinHosts:  minHosts,
+		StepData:   make(map[string]interface{}),
+		Providers:  make(map[string]*ct.Provider),
+		Singleton:  minHosts == 1,
+		MinHosts:   minHosts,
+		ClusterURL: clusterURL,
 	}
 	if s := os.Getenv("SINGLETON"); s != "" {
 		state.Singleton = s == "true"
+	}
+	if len(ips) > 0 {
+		state.HostURLs = make([]string, len(ips))
+		for i, ip := range ips {
+			state.HostURLs[i] = fmt.Sprintf("http://%s:1113", ip)
+		}
 	}
 
 	a = StepAction{ID: "online-hosts", Action: "check"}
@@ -181,31 +188,47 @@ var onlineHostAttempts = attempt.Strategy{
 	Delay: 200 * time.Millisecond,
 }
 
-func checkOnlineHosts(count int, state *State) error {
-	var online int
-
+func checkOnlineHosts(expected int, state *State) error {
+	urls := state.HostURLs
+	if len(urls) == 0 {
+		urls = []string{"http://127.0.0.1:1113"}
+	}
 	timeout := time.After(30 * time.Second)
 	for {
-		// TODO: instance urls instead of url
-		instances, err := discovery.GetCluster(state.ClusterURL)
-		if err != nil {
-			return fmt.Errorf("error discovering cluster: %s", err)
+		if state.ClusterURL != "" {
+			instances, err := discovery.GetCluster(state.ClusterURL)
+			if err != nil {
+				return fmt.Errorf("error discovering cluster: %s", err)
+			}
+			urls = make([]string, len(instances))
+			for i, inst := range instances {
+				urls[i] = inst.URL
+			}
 		}
 
-		online = len(instances)
-		if online >= count {
-			state.Hosts = make([]*cluster.Host, online)
-			for i, inst := range instances {
-				state.Hosts[i] = cluster.NewHost(inst.Name, inst.URL, nil)
+		known := len(urls)
+		online := 0
+		if known >= expected {
+			state.Hosts = make([]*cluster.Host, 0, known)
+			for _, url := range urls {
+				h := cluster.NewHost("", url, nil)
+				status, err := h.GetStatus()
+				if err != nil {
+					continue
+				}
+				online++
+				state.Hosts = append(state.Hosts, cluster.NewHost(status.ID, url, nil))
 			}
-			// TODO: ping all instances
-			break
+			if online >= expected {
+				break
+			}
 		}
 
 		select {
 		case <-timeout:
-			return fmt.Errorf("timed out waiting for %d hosts to come online (currently %d online)", count, online)
+			return fmt.Errorf("timed out waiting for %d hosts to come online (currently %d online)", expected, online)
 		default:
+			time.Sleep(time.Second)
 		}
 	}
 	return nil

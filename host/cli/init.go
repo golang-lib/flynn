@@ -15,7 +15,7 @@ usage: flynn-host init [options]
 options:
   --init-discovery    create and join a discovery token
   --discovery=TOKEN   join cluster with discovery token
-  --peers=IPS         join cluster using seed IPs (must be already bootstrapped)
+  --ips=IPLIST        join cluster using host IPs (must be already bootstrapped)
   --external=IP       external IP address of host, defaults to the first IPv4 address of eth0
   --file=NAME         file to write to [default: /etc/flynn/host.json]
   `)
@@ -34,13 +34,13 @@ func runInit(args *docopt.Args) error {
 		fmt.Println(discoveryToken)
 	}
 	if discoveryToken != "" {
-		config.Args = append(config.Args, "--discovery", discoveryToken)
+		c.Args = append(c.Args, "--discovery", discoveryToken)
 	}
 	if ip := args.String["--external"]; ip != "" {
-		config.Args = append(config.Args, "--external", ip)
+		c.Args = append(c.Args, "--external", ip)
 	}
-	if peers := args.String["--peers"]; peers != "" {
-		config.Args = append(config.Args, "--peers", peers)
+	if ips := args.String["--ips"]; ips != "" {
+		c.Args = append(c.Args, "--ips", ips)
 	}
 
 	return c.WriteTo(args.String["--file"])

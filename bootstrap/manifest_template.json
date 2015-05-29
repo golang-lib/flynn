@@ -16,6 +16,7 @@
           "ports": [{"port": 2379, "proto": "tcp"}, {"port": 2380, "proto": "tcp"}],
           "data": true,
           "resurrect": true,
+          "host_network": true,
 		  "omni": true
         }
       }
@@ -38,6 +39,7 @@
       "processes": {
         "app": {
           "resurrect": true,
+          "host_network": true,
 		  "omni": true
         }
       }
@@ -61,6 +63,7 @@
         "app": {
           "ports": [{"port": 1111, "proto": "tcp"}, {"port": 53, "proto": "tcp"}],
           "resurrect": true,
+          "host_network": true,
 		  "omni": true
         }
       }

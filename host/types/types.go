@@ -268,6 +268,7 @@ type DiscoverdConfig struct {
 }
 
 type HostStatus struct {
+	ID        string           `json:"id"`
 	Discoverd *DiscoverdConfig `json:"discoverd,omitempty"`
 	Network   *NetworkConfig   `json:"network,omitempty"`
 }

@@ -43,7 +43,7 @@ options:
   --flynn-init=PATH      path to flynn-init binary [default: /usr/local/bin/flynn-init]
   --log-dir=DIR          directory to store job logs [default: /var/log/flynn]
   --discovery=TOKEN      join cluster with discovery token
-  --peers=IPs            join existing cluster using IPs
+  --ips=IPLIST           join existing cluster using IPs
 	`)
 }
 
@@ -159,7 +159,7 @@ func runDaemon(args *docopt.Args) {
 		discoveryID, err := discovery.RegisterInstance(discovery.Info{
 			ClusterURL:  discoveryToken,
 			InstanceURL: fmt.Sprintf("http://%s:1113", externalAddr),
-			ID:          hostID,
+			Name:        hostID,
 		})
 		if err != nil {
 			g.Log(grohl.Data{"at": "register_discovery", "status": "error", "err": err.Error()})
@@ -246,18 +246,21 @@ func runDaemon(args *docopt.Args) {
 			return err
 		}
 		shutdown.BeforeExit(func() { hb.Close() })
-
-		if err := mux.Connect(disc, "flynn-logaggregator"); err != nil {
-			shutdown.Fatal(err)
-		}
 		discoverdConfigured = true
 		backend.SetDefaultEnv("DISCOVERD", url)
+
+		go func() {
+			if err := mux.Connect(disc, "flynn-logaggregator"); err != nil {
+				shutdown.Fatal(err)
+			}
+		}()
+
 		return nil
 	}
 
 	var cluster *cluster.Client
 	shutdown.Fatal(serveHTTP(
-		&Host{state: state, backend: backend},
+		&Host{id: hostID, state: state, backend: backend},
 		&attachHandler{state: state, backend: backend},
 		cluster,
 		vman,

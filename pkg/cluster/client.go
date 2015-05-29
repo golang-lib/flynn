@@ -71,7 +71,7 @@ func (c *Client) Hosts() ([]*Host, error) {
 	}
 	hosts := make([]*Host, len(insts))
 	for i, inst := range insts {
-		hosts[i] = NewHost(inst.ID, inst.Addr, c.h)
+		hosts[i] = NewHost(inst.Meta["id"], inst.Addr, c.h)
 	}
 	return hosts, nil
 }
@@ -92,7 +92,7 @@ func (c *Client) StreamHosts(ch chan *Host) (stream.Stream, error) {
 			if e.Kind != discoverd.EventKindUp {
 				continue
 			}
-			ch <- NewHost(e.Instance.ID, e.Instance.Addr, c.h)
+			ch <- NewHost(e.Instance.Meta["id"], e.Instance.Addr, c.h)
 		}
 	}()
 	return stream, nil
