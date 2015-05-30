@@ -213,6 +213,7 @@ func runDaemon(args *docopt.Args) {
 	if err != nil {
 		shutdown.Fatal(err)
 	}
+	backend.SetDefaultEnv("EXTERNAL_IP", externalAddr)
 
 	if err := state.Restore(backend); err != nil {
 		shutdown.Fatal(err)

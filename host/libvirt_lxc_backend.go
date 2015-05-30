@@ -174,7 +174,7 @@ var networkConfigAttempts = attempt.Strategy{
 // ConfigureNetworking is called once during host startup and passed the
 // strategy and identifier of the networking coordinatior job. Currently the
 // only strategy implemented uses flannel.
-func (l *LibvirtLXCBackend) ConfigureNetworking(config host.NetworkConfig) error {
+func (l *LibvirtLXCBackend) ConfigureNetworking(config *host.NetworkConfig) error {
 	var err error
 	l.bridgeAddr, l.bridgeNet, err = net.ParseCIDR(config.Subnet)
 	if err != nil {
@@ -270,6 +270,7 @@ func (l *LibvirtLXCBackend) ConfigureNetworking(config host.NetworkConfig) error
 	if err != nil {
 		return err
 	}
+	config.Resolvers = dnsConf.Servers
 
 	// Write a resolv.conf to be bind-mounted into containers pointing at the
 	// future discoverd DNS listener

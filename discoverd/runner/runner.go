@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"time"
 
@@ -52,7 +53,7 @@ func main() {
 			discoverd,
 			"-http-addr=:" + os.Getenv("PORT_0"),
 			fmt.Sprintf("-dns-addr=%s:53", ip),
-			"-recursors=" + os.Getenv("DNS_RECURSORS"),
+			"-recursors=" + strings.Join(status.Network.Resolvers, ","),
 			"-notify=http://127.0.0.1:1113/host/discoverd",
 		},
 		os.Environ(),
