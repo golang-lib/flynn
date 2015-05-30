@@ -259,8 +259,9 @@ const (
 )
 
 type NetworkConfig struct {
-	Subnet string `json:"subnet"`
-	MTU    int    `json:"mtu"`
+	Subnet    string   `json:"subnet"`
+	MTU       int      `json:"mtu"`
+	Resolvers []string `json:"resolvers"`
 }
 
 type DiscoverdConfig struct {

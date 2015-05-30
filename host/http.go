@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -178,32 +177,31 @@ func (h *jobAPI) ConfigureDiscoverd(w http.ResponseWriter, r *http.Request, _ ht
 		return
 	}
 
-	h.statusMtx.Lock()
-	h.status.Discoverd = &host.DiscoverdConfig{URL: config.URL}
-	h.statusMtx.Unlock()
-
 	go func() {
 		if err := h.connectDiscoverd(config.URL); err != nil {
-			log.Printf("Error connecting to discoverd: %s - %s", config.URL, err)
-			return
+			shutdown.Fatal(err)
 		}
+
+		h.statusMtx.Lock()
+		h.status.Discoverd = &host.DiscoverdConfig{URL: config.URL}
+		h.statusMtx.Unlock()
 	}()
 }
 
 func (h *jobAPI) ConfigureNetworking(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var config host.NetworkConfig
-	if err := httphelper.DecodeJSON(r, &config); err != nil {
+	config := &host.NetworkConfig{}
+	if err := httphelper.DecodeJSON(r, config); err != nil {
 		shutdown.Fatal(err)
 	}
-
-	h.statusMtx.Lock()
-	h.status.Network = &config
-	h.statusMtx.Unlock()
 
 	go func() {
 		if err := h.host.backend.ConfigureNetworking(config); err != nil {
 			shutdown.Fatal(err)
 		}
+
+		h.statusMtx.Lock()
+		h.status.Network = config
+		h.statusMtx.Unlock()
 	}()
 }
 
